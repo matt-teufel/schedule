@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include "parse.h"
 
-#define MAX_ARGS 10
-
 node **create_nodes(int argc, char *argv[])
 {
     int i = 2;

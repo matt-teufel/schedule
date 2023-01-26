@@ -1,4 +1,7 @@
 #include <sys/types.h>
+
+#define MAX_ARGS 10
+
 typedef struct node node;
 struct node
 {
