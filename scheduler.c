@@ -130,9 +130,6 @@ void run_timer(){
         exit(EXIT_FAILURE);
     }
     sigsuspend(&old); /*pauses process until a signal not in old is returned*/
-
-
-
 }
 
 void check_process(char *argv[], char *c[]){
