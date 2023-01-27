@@ -26,13 +26,14 @@ node **create_nodes(int argc, char *argv[])
         current->name = argv[i++];
         current->pid = 0;
         current->completed = 0;
-        current->args = malloc(MAX_ARGS * sizeof(char *));
+        current->args = malloc(MAX_ARGS+2 * sizeof(char *));
         k = 0;
         if (current->args == NULL)
         {
             perror("malloc");
             exit(EXIT_FAILURE);
         }
+        current->args[k++] = current->name;
         while (i < argc && (strcmp(argv[i], comp) != 0))
         {
             if (k < 10)
@@ -41,6 +42,7 @@ node **create_nodes(int argc, char *argv[])
             }
             i++;
         }
+        current->args[k] = NULL;
         i++;
         j++;
     }
