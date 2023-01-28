@@ -24,4 +24,8 @@ test: $(SCHEDULE)
 	./$(MAIN) 10000 two 1 : two 2 : two 3
 	./$(MAIN) 500 two 1 : two 2 : two 3
 	./$(MAIN) 100 two 1 : two 2 : two 3
+	./$(MAIN) 50 two 1 : two 2 : two 3 : two 4 : two 5 : two 6
+	./$(MAIN) 10 two 1 : two 2 : two 3 : two 4 : two 5 : two 6
+	./$(MAIN) 5 two 1 : two 2 : two 3 : two 4 : two 5 : two 6
+	./$(MAIN) 1 two 1 : two 2 : two 3 : two 4 : two 5 : two 6
 	./$(MAIN) 1000 prog1 a b c : prog2 :a :b : prog3
