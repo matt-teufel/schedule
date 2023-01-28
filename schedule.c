@@ -6,14 +6,14 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <errno.h>
-#include "parse.c"
+#include "parse.h"
 
 int flag, current_pid;
 
 void handler(int signum){
     //sigalrm 14 sigchld 17
     if(current_pid){
-        printf("current process: %i \n", current_pid);
+        // printf("current process: %i \n", current_pid);
         kill(current_pid, SIGSTOP);
     }
 
@@ -29,7 +29,7 @@ void handler(int signum){
 
 void child_handler(int signum){
     if(signum == SIGALRM){
-        printf("do nothing\n");
+        // printf("do nothing\n");
     }
 }
 
@@ -61,8 +61,8 @@ int fork_all(node**node_list){
             return i;
         }else if(pid == 0){
             raise(SIGSTOP);
-            printf("execcing child process %s\n", current_node->name);
-            execvp(current_node->name, current_node->args);
+            // printf("execcing child process %s\n", current_node->name);
+            execv(current_node->name, current_node->args);
             // execvp(ls, ls_args);
             print_args(current_node->args);
             printf("exec failed\n");
@@ -99,18 +99,11 @@ int main(int argc, char *argv[]){
     int quantum = atoi(argv[1]) * 1000;
     int sec = quantum / 1000000;
     int usec = quantum % 1000000;
-    printf("quantum sec:%i usec: %i\n", sec, usec);
-    int remaining_time;
-    sigset_t mask, old;
+    // printf("quantum sec:%i usec: %i\n", sec, usec);
+    sigset_t mask;
     struct itimerval timer;
     int which = ITIMER_REAL;
     (void) sigemptyset(&mask);
-    // sigaddset(&mask, SIGALRM); /*adds SIGALRM to signal mask*/
-    // sigaddset(&mask, SIGCHLD); /*adds SIGCHILD to signal mask*/
-    // if(sigprocmask(SIG_SETMASK, &mask, &old) == -1){ /*only allows alarm + SIGCHLD to enter handler(s) and stores current signal mask calling process in old*/
-    //     perror("sigrocmask");
-    //     exit(EXIT_FAILURE);
-    // }
     node * current;
     node ** node_list = create_nodes(argc, argv);
     total_processes= process_total(node_list);
@@ -123,14 +116,9 @@ int main(int argc, char *argv[]){
 
     i=0;
     completed_count = 0;
-    print_process_ids(node_list);
-
-    off.it_value.tv_sec = 0;
-    off.it_value.tv_usec = 0;
-    off.it_interval.tv_sec = 0;
-    off.it_interval.tv_usec =0;
+    // print_process_ids(node_list);
     while(completed_count != total_processes){
-        printf("completed count %i \n", completed_count);
+        // printf("completed count %i \n", completed_count);
         if(i >= last_fork){
             i = 0;
         }
@@ -153,15 +141,16 @@ int main(int argc, char *argv[]){
             status = 0;
             do {
                 wait_val = waitpid(current->pid, &status, WUNTRACED);
-                printf("current pid: %i wait val: %i, errno: %i, status: %i\n", current_pid, wait_val, errno, status);
+                // printf("current pid: %i wait val: %i, errno: %i, status: %i\n", current_pid, wait_val, errno, status);
             }while(wait_val == -1 && errno== EINTR); //switch statement for bad pids 
             if(WIFEXITED(status)){
                 current->completed=1;
                 completed_count++;
-                printf("exit status: %i\n", status);
-            }else{
-                printf("alarm went off child is stopped\n");
+                // printf("exit status: %i\n", status);
             }
+            // else{
+            //     // printf("alarm went off child is stopped\n");
+            // }
         }
         i++;
     }
