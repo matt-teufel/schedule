@@ -5,60 +5,44 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <errno.h>
 #include "parse.c"
 
-
-// void handler(int signum){
-
-//     /*alarm code */
-//     printf("insider alarm handler\n");
-//     timeout = 1;
-//     }
-
-// void child_handler(int signum){
-//     /*child handler*/
-//     printf("inside child_handler\n");
-//     child_done = 1;
-// }
-
-// void stop_handler(int signum){
-//     printf("stop occured\n");
-// }
-
-/*global signal + timer variables*/
-// sigset_t mask, old;
-// struct itimerval val;    
-// struct sigaction sa, sat;
-
-// void timer_setup(int quantum){
-//     /*sets up the quantum timer to periodically enters handler function every quantum ms*/
-
-//     sa.sa_handler = handler; /*reference handler function*/
-//     sigemptyset(&sa.sa_mask); /*initialize an empty set of signals to be caught by handler*/
-//     sa.sa_flags = 0; /*set to zero*/
-
-//     sat.sa_handler = child_handler;
-//     sigemptyset(&sat.sa_mask); /*initialize an empty set of signals to be caught by handler*/
-//     sat.sa_flags = 0; /*set to zero*/
-
-//     sigemptyset(&mask); /*creates an empty set of signals in mask*/
-//     sigaddset(&mask, SIGALRM); /*adds SIGALRM to signal mask*/
-//     sigaddset(&mask, SIGCHLD); /*adds SIGCHILD to signal mask*/
-
-//     if(sigprocmask(SIG_SETMASK, &mask, &old) == -1){ /*only allows alarm + SIGCHLD to enter handler(s) and stores current signal mask calling process in old*/
-//         perror("sigrocmask");
-//         exit(EXIT_FAILURE);
-//     }
-//     val.it_value.tv_sec = QUANTUM;
-//     val.it_value.tv_usec = 0;
-//     val.it_interval.tv_sec = 0;
-//     val.it_interval.tv_usec = 0;
-// }
+int flag, current_pid;
 
 void handler(int signum){
-    printf("this is parent handler\n");
+    //sigalrm 14 sigchld 17
+    if(current_pid){
+        printf("current process: %i \n", current_pid);
+        kill(current_pid, SIGSTOP);
+    }
+
+    // if(signum==SIGALRM){
+    //     flag = 1;
+    // }else if(signum==SIGCHLD){
+    //     flag = 2;
+    // }else{
+    //     flag == 0;
+    // }
+    // printf("handler -- signum: %i flag: %i \n", signum, flag);
 }
 
+void child_handler(int signum){
+    if(signum == SIGALRM){
+        printf("do nothing\n");
+    }
+}
+
+void print_args(char ** args){
+    char * current = args[0];
+    int i = 0;
+    while(current!=NULL)
+    {
+        current = args[i++];
+        printf("%s, ", current);
+    }
+    printf("\n");
+}
 
 /* 
 fork_all iterates through the list of all process nodes
@@ -74,19 +58,15 @@ int fork_all(node**node_list){
     while((current_node = node_list[i])!=NULL){
         pid = fork();
         if(pid < 0){
-            /*if our process table is full, we will take this current list
-            and round robin exec until it is empty, then call this function again 
-            on the remaining processes that need to be handled */
             return i;
         }else if(pid == 0){
             raise(SIGSTOP);
-            printf("execcing child process %s first arg: %s\n", current_node->name,current_node->args[0]);
+            printf("execcing child process %s\n", current_node->name);
             execvp(current_node->name, current_node->args);
+            // execvp(ls, ls_args);
+            print_args(current_node->args);
             printf("exec failed\n");
-            exit(-1);
-            //exec here right after 
-            //this will still be the child process id before the exec 
-            // we dont actualy have to enter process yet 
+            exit(0);
         }else{
             current_node->pid = pid;
             waitpid(pid, &status, WUNTRACED);
@@ -95,24 +75,6 @@ int fork_all(node**node_list){
     }
     return i;
 }
-
-// void run_timer(){
-//     if(sigaction(SIGALRM, &sa, NULL) == -1){ /*redirection to handler when signal alarm is detected */
-//         perror("sigaction");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if(sigaction(SIGCHLD, &sat, NULL) == -1){ /*redirection to child handler when child process ends */
-//         perror("sigaction");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if (setitimer(ITIMER_REAL, &val, NULL) == -1){ /*sets and starts the timer to the quantum value*/
-//         perror("sigitimer");
-//         exit(EXIT_FAILURE);
-//     }
-//     sigsuspend(&old); /*pauses process until a signal not in old is returned*/
-// }
 
 
 int process_total(node**node_list){
@@ -133,53 +95,73 @@ void print_process_ids(node** node_list){
 
 
 int main(int argc, char *argv[]){
-    int last_fork, total_processes, i, completed_count, status;
+    int last_fork, total_processes, i, completed_count, status, wait_val;
     int quantum = atoi(argv[1]) * 1000;
-    printf("quantum in micro %i\n", quantum);
+    int sec = quantum / 1000000;
+    int usec = quantum % 1000000;
+    printf("quantum sec:%i usec: %i\n", sec, usec);
     int remaining_time;
-    sigset_t mask;
+    sigset_t mask, old;
+    struct itimerval timer;
+    int which = ITIMER_REAL;
     (void) sigemptyset(&mask);
+    // sigaddset(&mask, SIGALRM); /*adds SIGALRM to signal mask*/
+    // sigaddset(&mask, SIGCHLD); /*adds SIGCHILD to signal mask*/
+    // if(sigprocmask(SIG_SETMASK, &mask, &old) == -1){ /*only allows alarm + SIGCHLD to enter handler(s) and stores current signal mask calling process in old*/
+    //     perror("sigrocmask");
+    //     exit(EXIT_FAILURE);
+    // }
     node * current;
     node ** node_list = create_nodes(argc, argv);
     total_processes= process_total(node_list);
+
     //last fork is 0 if all forks were successful
     //if it is non zero, then we will need to fork as our processes exec
     last_fork = fork_all(node_list);
 
-    // timer_setup(argv[1]);
     signal(SIGALRM, handler);
-    //do round robin 
+
     i=0;
     completed_count = 0;
     print_process_ids(node_list);
-    printf("total proceses%i\n", total_processes);
+
+    off.it_value.tv_sec = 0;
+    off.it_value.tv_usec = 0;
+    off.it_interval.tv_sec = 0;
+    off.it_interval.tv_usec =0;
     while(completed_count != total_processes){
+        printf("completed count %i \n", completed_count);
         if(i >= last_fork){
             i = 0;
         }
         current = node_list[i];
         if(!(current->completed)){
-            // run_timer();
-            //resume child process
-            ualarm(quantum, 0);
+            current_pid = current->pid;
+            // printf("current pid %i before alarm\n", current->pid);
+            timer.it_value.tv_sec = sec;
+            timer.it_value.tv_usec = usec;
+            timer.it_interval.tv_sec = 0;
+            timer.it_interval.tv_usec =0;
+            flag = 0;
+            if(setitimer(which, &timer, NULL) < 0){
+                perror("timer");
+                exit(EXIT_FAILURE);
+            };       
             kill(current->pid, SIGCONT);
-            //wait in the parent until the child exits 
-            sigsuspend(&mask);
-            remaining_time = ualarm(0,0);
-            printf("reamaining time %i\n", remaining_time);
-            if(remaining_time){
-                //if there is still time on timer, then SIGCHLD was sent before SIGALARM
-                //mark child complete 
+            //wait in the parent until the child exits or we get sigalarm 
+            // sigsuspend(&mask);
+            status = 0;
+            do {
+                wait_val = waitpid(current->pid, &status, WUNTRACED);
+                printf("current pid: %i wait val: %i, errno: %i, status: %i\n", current_pid, wait_val, errno, status);
+            }while(wait_val == -1 && errno== EINTR); //switch statement for bad pids 
+            if(WIFEXITED(status)){
                 current->completed=1;
                 completed_count++;
-                printf("child has exitted\n");
+                printf("exit status: %i\n", status);
             }else{
-                //if alarm went off, stop child 
-                kill(current->pid, SIGSTOP);
-                printf("alarm went off child is stopped");
+                printf("alarm went off child is stopped\n");
             }
-            //wait for child no matter what 
-            waitpid(current->pid, &status, WUNTRACED);
         }
         i++;
     }
